@@ -11,13 +11,14 @@ require 'to_regexp'
 require_relative 'ical_filter_proxy/alarm_trigger'
 require_relative 'ical_filter_proxy/calendar'
 require_relative 'ical_filter_proxy/filter_rule'
-require_relative 'ical_filter_proxy/calendar_builder'
 require_relative 'ical_filter_proxy/filterable_event_adapter'
+require_relative 'ical_filter_proxy/archive_store'
+require_relative 'ical_filter_proxy/calendar_builder'
 
 module IcalFilterProxy
   def self.calendars
-    config.transform_values do |calendar_config|
-      CalendarBuilder.new(calendar_config).build
+    config.each_with_object({}) do |(name, calendar_config), acc|
+      acc[name] = CalendarBuilder.new(calendar_config, name).build
     end
   end
 

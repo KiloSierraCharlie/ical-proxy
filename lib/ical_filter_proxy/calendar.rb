@@ -1,6 +1,6 @@
 module IcalFilterProxy
   class Calendar
-    attr_accessor :ical_url, :api_key, :timezone, :filter_rules, :clear_existing_alarms, :alarm_triggers
+    attr_accessor :ical_url, :api_key, :timezone, :filter_rules, :clear_existing_alarms, :alarm_triggers, :archive_store
 
     def initialize(ical_url, api_key, timezone = 'UTC')
       self.ical_url = ical_url
@@ -44,7 +44,8 @@ module IcalFilterProxy
     private
 
     def filtered_events
-      original_ics.events.select do |e|
+      source_events = merged_events
+      source_events.select do |e|
         filter_match?(FilterableEventAdapter.new(e, timezone: timezone))
       end
     end
@@ -59,6 +60,15 @@ module IcalFilterProxy
 
     def raw_original_ical
       URI.open(ical_url).read
+    end
+
+    def merged_events
+      current_events = original_ics.events
+      if archive_store
+        archive_store.merge_and_get(current_events)
+      else
+        current_events
+      end
     end
   end
 end

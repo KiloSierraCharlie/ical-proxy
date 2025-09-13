@@ -35,6 +35,12 @@ my_calendar_name:
      triggers: # (optional) triggers for new alarms. Description will be the alarm summary, action is 'DISPLAY'
        - '-P1DT0H0M0S' # iso8061 supported
        - 2 days # supports full day[s], hour[s], minute[s], no combination in one trigger
+   archive: # (optional) persist and serve older events
+     enabled: true # when true, events are archived locally and merged
+     # path: ./archive/my_calendar_name.ics # optional; defaults to ./archive/<calendar_name>.ics
+     # max_age_days: 365 # retention: prune events older than this from archive/output
+     # window_days: 30 # feed coverage window; missing events newer than this are removed, older ones persist (treated as timed out)
+      # Note: events with STATUS:CANCELLED are removed from the archive and not served
 ```
 
 ### Variable substitution

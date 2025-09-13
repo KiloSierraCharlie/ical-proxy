@@ -1,6 +1,8 @@
 rota:
   ical_url: https://url-to-calendar.ical
   api_key: abc12
+  # Optional timezone (defaults to UTC)
+  # timezone: Europe/London
   rules:
     - field: start_time
       operator: equals
@@ -10,3 +12,11 @@ rota:
     triggers:
       - '-P1DT0H0M0S'
       - '-P1DT1H1M2S'
+  # Archive previously seen events so older ones keep showing even if
+  # the source feed stops returning them. When enabled without a path,
+  # it defaults to ./archive/<calendar_name>.ics
+  archive:
+    enabled: true
+    # path: ./archive/rota.ics
+    # max_age_days: 365 # retention: prune events older than this from archive/output
+    # window_days: 30 # consider feed to cover last N days; missing events newer than this are removed, older are persisted
