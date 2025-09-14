@@ -1,11 +1,13 @@
 module IcalProxy
   class Calendar
-    attr_accessor :ical_url, :api_key, :timezone, :filter_rules, :clear_existing_alarms, :alarm_triggers, :transformations
+    attr_accessor :ical_url, :api_key, :timezone, :filter_rules, :clear_existing_alarms, :alarm_triggers, :transformations, :name, :persist_missing_days
 
-    def initialize(ical_url, api_key, timezone = 'UTC')
+    def initialize(ical_url, api_key, timezone = 'UTC', name = nil, persist_missing_days = nil)
       self.ical_url = ical_url
       self.api_key = api_key
       self.timezone = timezone
+      self.name = name
+      self.persist_missing_days = persist_missing_days
 
       self.filter_rules = []
       self.clear_existing_alarms = false
@@ -57,7 +59,7 @@ module IcalProxy
     private
 
     def filtered_events
-      original_ics.events.select do |e|
+      combined_events.select do |e|
         filter_match?(FilterableEventAdapter.new(e, timezone: timezone))
       end
     end
@@ -72,6 +74,17 @@ module IcalProxy
 
     def raw_original_ical
       URI.open(ical_url).read
+    end
+
+    def combined_events
+      # Pull latest feed events
+      current_events = original_ics.events
+
+      # Update persist store and get union of current + persisted-missing events
+      union_raw = PersistStore.synchronize_and_union(name || ical_url, current_events, persist_missing_days)
+
+      # union_raw returns array of Icalendar::Event objects already
+      union_raw
     end
   end
 end

@@ -17,6 +17,7 @@ my_calendar_name:
    ical_url: https://source-calendar.com/my_calendar.ics # Source calendar
    api_key: myapikey # (optional) append ?key=myapikey to your URL to grant access
    timezone: Europe/London # (optional) ensure all time comparisons are done in this TZ
+   persist_missing_days: 30 # (optional) keep disappeared events if they ended > N days ago
    rules:
       - field: start_time # start_time and end_time supported
         operator: not-equals # equals and not-equals supported
@@ -118,3 +119,14 @@ This task will output the file `ical-proxy.zip`. Note that you must have the `zi
 When prompted during the Lambda setup, provide this zip file and set the handler to `lambda.handle`.
 
 That's it! Your calendar should now be available at `https://aws-api-gateway-host/default/gateway_name?calendar=my_calendar_name&key=my_api_key`
+
+## Persistence
+
+- File: `persist.json` at the project root (ignored by git by default).
+- Content: Stores raw `VEVENT` blocks (unmodified) keyed by UID per calendar.
+- Update: Each request fetches the live ICS, upserts current events (raw) into the store, and evaluates disappeared events.
+- Disappeared events:
+  - With `persist_missing_days`: keep if the event ended more than N days ago; otherwise remove.
+  - Without the setting: keep only if an older event still exists in the current feed; otherwise remove.
+- Serving: The calendar serves the union of live events and persisted-only events, then applies your configured filters/transformations. The persisted data itself remains raw and untransformed.
+- Reset: Delete `persist.json` to clear the history for all calendars.

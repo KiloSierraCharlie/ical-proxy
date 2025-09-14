@@ -1,9 +1,10 @@
 module IcalProxy
   class CalendarBuilder
 
-    attr_reader :calendar_config, :calendar
+    attr_reader :calendar_config, :calendar, :calendar_name
 
-    def initialize(calendar_config)
+    def initialize(calendar_name, calendar_config)
+      @calendar_name = calendar_name
       @calendar_config = calendar_config
     end
 
@@ -19,9 +20,13 @@ module IcalProxy
     private
 
     def create_calendar
-      @calendar = Calendar.new(calendar_config["ical_url"],
-                               calendar_config["api_key"],
-                               calendar_config["timezone"])
+      @calendar = Calendar.new(
+        calendar_config["ical_url"],
+        calendar_config["api_key"],
+        calendar_config["timezone"],
+        calendar_name,
+        calendar_config["persist_missing_days"]
+      )
     end
 
     def add_rules
