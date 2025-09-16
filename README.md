@@ -13,6 +13,8 @@ In addition, display alarms can be created or cleared.
 ## Configuration
 
 ```yaml
+storage: postgres://user:password@server:5432/database_name # optional, or set ICAL_PROXY_STORAGE
+
 my_calendar_name:
    ical_url: https://source-calendar.com/my_calendar.ics # Source calendar
    api_key: myapikey # (optional) append ?key=myapikey to your URL to grant access
@@ -130,6 +132,39 @@ That's it! Your calendar should now be available at `https://aws-api-gateway-hos
   - Without the setting: keep only if an older event still exists in the current feed; otherwise remove.
 - Serving: The calendar serves the union of live events and persisted-only events, then applies your configured filters/transformations. The persisted data itself remains raw and untransformed.
 - Reset: Delete `persist.json` to clear the history for all calendars.
+
+### Storage backends
+
+You can choose where persistence data is stored via either the `ICAL_PROXY_STORAGE` environment variable or a top‑level `storage:` key in `config.yml`. Format is a URI similar to Doctrine DSNs:
+
+- JSON file (default): `json://path_to_folder`
+  - Stores a single `persist.json` inside the folder.
+  - Backwards compatible with previous behavior when pointed at the project root.
+- SQLite: `sqlite://path_to_sqlite`
+  - Requires `gem 'sqlite3'`.
+  - Creates a table `events(calendar_key, uid, raw, dtstart, dtend, first_seen, last_seen)`.
+- PostgreSQL: `postgres://user:password@server:port/database_name`
+  - Requires `gem 'pg'`.
+  - Creates the same `events` table if missing.
+- MySQL: `mysql://user:password@server:port/database_name`
+  - Requires `gem 'mysql2'`.
+  - Creates the same `events` table if missing.
+
+Config precedence: `ICAL_PROXY_STORAGE` overrides `storage:` in YAML. If neither is set, defaults to `json://<project_root>`.
+
+You can optionally nest calendars under a `calendars:` key. Otherwise, all top‑level keys except `storage` are treated as calendars.
+
+### Database-backed configuration
+
+You can store calendar configuration in the database as well (SQLite/Postgres/MySQL). YAML remains the source of truth and overrides any DB values:
+
+- YAML takes precedence: if a calendar exists in YAML, the DB will not overwrite it.
+- DB fills in anything not present in YAML (e.g., extra calendars). Field-level merging is not performed; presence of a calendar in YAML means use the YAML version entirely.
+
+Schema used by SQL backends (auto-created):
+- `configs_calendars(name PRIMARY KEY, json TEXT)` — `json` holds a serialized hash of each calendar’s config.
+
+To add or update configs in DB, insert rows into `configs_calendars` with `name` and `json` (stringified JSON matching the calendar’s YAML shape).
 
 ## Plugins / Addons
 

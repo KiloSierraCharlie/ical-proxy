@@ -1,11 +1,10 @@
 FROM ruby:3.4-alpine AS base
-RUN apk add --update tzdata
+RUN apk add --no-cache tzdata sqlite-libs postgresql-libs mariadb-connector-c
 
 FROM base AS dependencies
-RUN apk add --update build-base
+RUN apk add --no-cache build-base sqlite-dev postgresql-dev mariadb-dev
 COPY Gemfile Gemfile.lock ./
-RUN bundle config --global frozen 1 && \
-    bundle install --jobs=3 --retry=3
+RUN bundle install --jobs=3 --retry=3
 
 FROM base
 RUN adduser -D app

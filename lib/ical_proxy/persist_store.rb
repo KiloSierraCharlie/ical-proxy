@@ -1,16 +1,13 @@
 require 'json'
 require 'time'
+require 'uri'
 
 module IcalProxy
   class PersistStore
-    FILE_PATH = File.expand_path('../../persist.json', __dir__)
-
     # Persist the union of current feed events with previously persisted events
     # applying disappearance rules. Returns array of Icalendar::Event.
     def self.synchronize_and_union(calendar_key, current_events, persist_missing_days)
-      data = load
-      cal = (data['calendars'][calendar_key] ||= { 'events' => {} })
-      store = cal['events'] # uid => record
+      store = adapter.load_calendar(calendar_key) # uid => record
 
       now_iso = Time.now.utc.iso8601
 
@@ -62,8 +59,8 @@ module IcalProxy
         store.delete(uid) unless keep
       end
 
-      # Persist file to disk
-      save(data)
+      # Persist to configured storage
+      adapter.save_calendar(calendar_key, store)
 
       # Build union: current events + persisted-only events
       union = []
@@ -79,18 +76,12 @@ module IcalProxy
       union
     end
 
-    def self.load
-      if File.exist?(FILE_PATH)
-        JSON.parse(File.read(FILE_PATH))
-      else
-        { 'calendars' => {} }
+    # Storage adapter resolution
+    def self.adapter
+      @adapter ||= begin
+        storage_uri = IcalProxy.storage_uri
+        Storage::Factory.build(storage_uri)
       end
-    end
-
-    def self.save(data)
-      dirname = File.dirname(FILE_PATH)
-      Dir.mkdir(dirname) unless Dir.exist?(dirname)
-      File.write(FILE_PATH, JSON.pretty_generate(data))
     end
 
     def self.safe_uid(event)
@@ -136,4 +127,3 @@ module IcalProxy
     end
   end
 end
-

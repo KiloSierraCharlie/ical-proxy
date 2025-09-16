@@ -33,7 +33,7 @@ end
 
 module IcalProxy
   def self.calendars
-    config.map { |name, calendar_config| [name, CalendarBuilder.new(name, calendar_config).build] }.to_h
+    calendar_configs.map { |name, calendar_config| [name, CalendarBuilder.new(name, calendar_config).build] }.to_h
   end
 
   def self.config
@@ -48,4 +48,44 @@ module IcalProxy
     File.expand_path('../config.yml', __dir__)
   end
 
+  def self.calendar_configs
+    yaml_cfg = config
+    yaml_cals = if yaml_cfg.is_a?(Hash) && yaml_cfg['calendars'].is_a?(Hash)
+                  yaml_cfg['calendars']
+                else
+                  reserved = %w[storage]
+                  yaml_cfg.select { |k, _| !reserved.include?(k.to_s) }
+                end
+
+    # Load DB calendars and merge underneath YAML (YAML wins)
+    db_cals = db_calendar_configs
+    merged = db_cals.merge(yaml_cals) # keys in yaml_cals override db
+    merged
+  end
+
+  # Determine storage URI from env or config
+  def self.storage_uri
+    env = ENV['ICAL_PROXY_STORAGE']
+    return env if env && !env.to_s.strip.empty?
+
+    cfg = config
+    val = cfg.is_a?(Hash) ? cfg['storage'] : nil
+    return val if val && !val.to_s.strip.empty?
+
+    # default to JSON in project root
+    "json://#{File.expand_path('..', __dir__)}"
+  end
+
+  def self.storage_adapter
+    @storage_adapter ||= IcalProxy::Storage::Factory.build(storage_uri)
+  end
+
+  def self.db_calendar_configs
+    adapter = storage_adapter
+    if adapter.respond_to?(:load_all_calendar_configs)
+      adapter.load_all_calendar_configs
+    else
+      {}
+    end
+  end
 end
