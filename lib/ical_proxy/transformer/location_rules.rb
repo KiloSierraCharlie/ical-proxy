@@ -85,3 +85,111 @@ module IcalProxy
     end
   end
 end
+
+# Register builders for transformations.location_rules and transformations.location
+begin
+  IcalProxy::Transformer::Registry.register('location_rules') do |rules_cfg|
+    rules = Array(rules_cfg).map do |rule|
+      pattern_str = rule["pattern"]
+      next nil unless pattern_str
+
+      pattern = begin
+        if rule.key?("regex") && rule["regex"] == true
+          pattern_str.to_regexp
+        elsif pattern_str.is_a?(String) && pattern_str.strip.start_with?("/")
+          pattern_str.to_regexp
+        elsif pattern_str.is_a?(Regexp)
+          pattern_str
+        else
+          pattern_str.to_s
+        end
+      rescue
+        pattern_str.to_s
+      end
+
+      search = rule["search"]
+      location = rule["location"]
+
+      geo = if rule["geo"].is_a?(Hash)
+              rule["geo"]
+            elsif rule.key?("lat") && rule.key?("lon")
+              { 'lat' => rule["lat"], 'lon' => rule["lon"] }
+            else
+              nil
+            end
+
+      IcalProxy::Transformer::LocationRules::Rule.new(pattern, search, location, geo)
+    end.compact
+
+    next [] if rules.empty?
+    IcalProxy::Transformer::LocationRules.new(rules)
+  end
+
+  IcalProxy::Transformer::Registry.register('location') do |unified_cfg|
+    rules = Array(unified_cfg).map do |rule|
+      pattern_str = rule["pattern"]
+      next nil unless pattern_str
+
+      pattern = begin
+        if rule.key?("regex") && rule["regex"] == true
+          pattern_str.to_regexp
+        elsif pattern_str.is_a?(String) && pattern_str.strip.start_with?("/")
+          pattern_str.to_regexp
+        elsif pattern_str.is_a?(Regexp)
+          pattern_str
+        else
+          pattern_str.to_s
+        end
+      rescue
+        pattern_str.to_s
+      end
+
+      if rule["extract_from"]
+        IcalProxy::Transformer::LocationRules::Rule.new(
+          pattern,
+          nil,
+          nil,
+          extract_geo(rule),
+          rule["extract_from"].to_s,
+          (rule["capture_group"] || 1),
+          rule.key?("set_if_blank") ? !!rule["set_if_blank"] : true
+        )
+      else
+        search = rule["search"]
+        location = rule["location"]
+        geo = extract_geo(rule)
+
+        IcalProxy::Transformer::LocationRules::Rule.new(
+          pattern,
+          search,
+          location,
+          geo,
+          nil,
+          nil,
+          nil
+        )
+      end
+    end.compact
+
+    next [] if rules.empty?
+    IcalProxy::Transformer::LocationRules.new(rules)
+  end
+
+  module IcalProxy
+    module Transformer
+      class LocationRules
+        def self.extract_geo(rule)
+          if rule["geo"].is_a?(Hash)
+            rule["geo"]
+          elsif rule.key?("lat") && rule.key?("lon")
+            { 'lat' => rule["lat"], 'lon' => rule["lon"] }
+          else
+            nil
+          end
+        end
+      end
+    end
+  end
+rescue NameError
+  # Registry may be required later; ignore registration if missing
+end

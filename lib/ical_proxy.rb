@@ -8,14 +8,28 @@ require 'forwardable'
 require 'to_regexp'
 require 'json'
 
-require_relative 'ical_proxy/filter/alarm_trigger'
-require_relative 'ical_proxy/calendar'
-require_relative 'ical_proxy/filter/filter_rule'
-require_relative 'ical_proxy/calendar_builder'
-require_relative 'ical_proxy/filter/filterable_event_adapter'
-require_relative 'ical_proxy/transformer/rename'
-require_relative 'ical_proxy/transformer/location_rules'
-require_relative 'ical_proxy/persist_store'
+# Load core and plugins automatically.
+# Ensure transformer registry is available before loading transformers that register themselves.
+begin
+  require_relative 'ical_proxy/transformer/registry'
+rescue LoadError
+  # registry may not exist yet in older trees – ignore
+end
+
+# Require all library files under lib/ical_proxy (except this file and registry already required above)
+base_dir = File.expand_path(__dir__)
+Dir[File.join(base_dir, 'ical_proxy/**/*.rb')].sort.each do |file|
+  next if File.expand_path(file) == File.expand_path(__FILE__)
+  # Skip if it's the registry (we loaded earlier)
+  next if file.end_with?(File.join('transformer', 'registry.rb'))
+  require file
+end
+
+# Also load any drop-in addons placed under lib/ical_proxy/addons/**
+addons_dir = File.join(base_dir, 'ical_proxy', 'addons')
+if Dir.exist?(addons_dir)
+  Dir[File.join(addons_dir, '**/*.rb')].sort.each { |f| require f }
+end
 
 module IcalProxy
   def self.calendars
