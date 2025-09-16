@@ -87,6 +87,25 @@ module IcalProxy
         end
         out
       end
+
+      def list_calendar_configs
+        load_all_calendar_configs
+      end
+
+      def get_calendar_config(name)
+        row = @db.get_first_row('SELECT name, json FROM configs_calendars WHERE name = ?', [name])
+        return nil unless row
+        JSON.parse(row['json'] || '{}') rescue nil
+      end
+
+      def upsert_calendar_config(name, hash)
+        json = JSON.generate(hash)
+        @db.execute('INSERT INTO configs_calendars (name, json) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET json = excluded.json', [name, json])
+      end
+
+      def delete_calendar_config(name)
+        @db.execute('DELETE FROM configs_calendars WHERE name = ?', [name])
+      end
     end
   end
 end

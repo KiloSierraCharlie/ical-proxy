@@ -92,6 +92,27 @@ module IcalProxy
         end
         out
       end
+
+      def list_calendar_configs
+        load_all_calendar_configs
+      end
+
+      def get_calendar_config(name)
+        res = @client.prepare('SELECT name, json FROM configs_calendars WHERE name = ?').execute(name)
+        row = res.first
+        return nil unless row
+        JSON.parse(row['json'] || '{}') rescue nil
+      end
+
+      def upsert_calendar_config(name, hash)
+        json = JSON.generate(hash)
+        @client.query("INSERT INTO configs_calendars (name, json) VALUES ('#{@client.escape(name)}', '#{@client.escape(json)}')
+                       ON DUPLICATE KEY UPDATE json = VALUES(json)")
+      end
+
+      def delete_calendar_config(name)
+        @client.prepare('DELETE FROM configs_calendars WHERE name = ?').execute(name)
+      end
     end
   end
 end

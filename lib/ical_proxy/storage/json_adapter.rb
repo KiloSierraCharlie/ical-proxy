@@ -43,9 +43,38 @@ module IcalProxy
 
       public
 
-      # No DB-backed config for JSON storage; return empty
       def load_all_calendar_configs
-        {}
+        (read_all['configs_calendars'] || {}).transform_values do |json|
+          begin
+            parsed = json.is_a?(String) ? JSON.parse(json) : json
+            parsed.is_a?(Hash) ? parsed : {}
+          rescue
+            {}
+          end
+        end
+      end
+
+      def list_calendar_configs
+        load_all_calendar_configs
+      end
+
+      def get_calendar_config(name)
+        list_calendar_configs[name]
+      end
+
+      def upsert_calendar_config(name, hash)
+        data = read_all
+        data['configs_calendars'] ||= {}
+        data['configs_calendars'][name] = hash
+        write_all(data)
+      end
+
+      def delete_calendar_config(name)
+        data = read_all
+        if data['configs_calendars']
+          data['configs_calendars'].delete(name)
+          write_all(data)
+        end
       end
     end
   end

@@ -1,0 +1,391 @@
+openapi: 3.1.0
+info:
+  title: ical-proxy API
+  version: 1.0.0
+  description: |
+    Management and preview API for ical-proxy. Intended to be consumed by a Symfony client.
+    If ICAL_PROXY_ADMIN_TOKEN is set, management endpoints require Bearer auth.
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                required: [status]
+  /api/v1/calendars:
+    get:
+      summary: List calendars
+      operationId: listCalendars
+      responses:
+        '200':
+          description: List of calendars
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CalendarListItem'
+    post:
+      summary: Create calendar (DB)
+      operationId: createCalendar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCalendarRequest'
+      responses:
+        '200':
+          description: Created/updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/calendars/{name}:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Get calendar config (effective)
+      operationId: getCalendar
+      responses:
+        '200':
+          description: Calendar config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarGetResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      summary: Update calendar (DB)
+      operationId: updateCalendar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCalendarRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict (YAML-defined)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete calendar (DB)
+      operationId: deleteCalendar
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '409':
+          description: Conflict (YAML-defined)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/calendars/{name}/sync:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema:
+          type: string
+    post:
+      summary: Fetch and persist latest events
+      operationId: syncCalendar
+      responses:
+        '200':
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  counts:
+                    type: object
+                    properties:
+                      inserted:
+                        type: integer
+                      deleted:
+                        type: integer
+                      union:
+                        type: integer
+                required: [ok]
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/calendars/{name}/events:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: source
+        schema:
+          type: string
+          enum: [live, persisted, union]
+    get:
+      summary: List events as JSON
+      operationId: listEvents
+      responses:
+        '200':
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/calendars/{name}/preview.ics:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: key
+        required: false
+        schema:
+          type: string
+    get:
+      summary: Get proxied ICS
+      operationId: previewIcs
+      security: []
+      responses:
+        '200':
+          description: ICS content
+          content:
+            text/calendar:
+              schema:
+                type: string
+        '403':
+          description: Authentication incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/calendars/{name}/preview.json:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: key
+        required: false
+        schema:
+          type: string
+    get:
+      summary: Get proxied events as JSON
+      operationId: previewJson
+      security: []
+      responses:
+        '200':
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '403':
+          description: Authentication incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Ok:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required: [ok]
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    CalendarListItem:
+      type: object
+      properties:
+        name:
+          type: string
+        source:
+          type: string
+          enum: [yaml, db, unknown]
+      required: [name, source]
+    CalendarGetResponse:
+      type: object
+      properties:
+        name:
+          type: string
+        source:
+          type: string
+          enum: [yaml, db, unknown]
+        config:
+          $ref: '#/components/schemas/CalendarConfig'
+      required: [name, source, config]
+    CreateCalendarRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        config:
+          $ref: '#/components/schemas/CalendarConfig'
+      required: [name, config]
+    UpdateCalendarRequest:
+      type: object
+      properties:
+        config:
+          $ref: '#/components/schemas/CalendarConfig'
+      required: [config]
+    CalendarConfig:
+      type: object
+      properties:
+        ical_url:
+          type: string
+          description: Source ICS URL
+        api_key:
+          type: string
+          description: Per-calendar key for ICS access
+        timezone:
+          type: string
+        persist_missing_days:
+          type: integer
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/FilterRule'
+        alarms:
+          $ref: '#/components/schemas/Alarms'
+        transformations:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+    FilterRule:
+      type: object
+      properties:
+        field:
+          type: string
+        operator:
+          type: string
+        val:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+      required: [field, operator]
+    Alarms:
+      type: object
+      properties:
+        clear_existing:
+          type: boolean
+        triggers:
+          type: array
+          items:
+            type: string
+    Event:
+      type: object
+      properties:
+        uid:
+          type: string
+          nullable: true
+        summary:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        dtstart:
+          type: string
+          description: ISO8601 timestamp
+          nullable: true
+        dtend:
+          type: string
+          description: ISO8601 timestamp
+          nullable: true
+        source:
+          type: string
+          enum: [live, persisted]
+          nullable: true

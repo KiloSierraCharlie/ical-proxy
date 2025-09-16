@@ -92,6 +92,29 @@ module IcalProxy
         end
         out
       end
+
+      def list_calendar_configs
+        load_all_calendar_configs
+      end
+
+      def get_calendar_config(name)
+        res = @conn.exec_params('SELECT name, json FROM configs_calendars WHERE name = $1', [name])
+        return nil if res.ntuples == 0
+        JSON.parse(res[0]['json'] || '{}') rescue nil
+      end
+
+      def upsert_calendar_config(name, hash)
+        json = JSON.generate(hash)
+        @conn.exec_params(
+          'INSERT INTO configs_calendars (name, json) VALUES ($1,$2)
+           ON CONFLICT (name) DO UPDATE SET json = EXCLUDED.json',
+          [name, json]
+        )
+      end
+
+      def delete_calendar_config(name)
+        @conn.exec_params('DELETE FROM configs_calendars WHERE name = $1', [name])
+      end
     end
   end
 end

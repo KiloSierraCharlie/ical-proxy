@@ -166,6 +166,27 @@ Schema used by SQL backends (auto-created):
 
 To add or update configs in DB, insert rows into `configs_calendars` with `name` and `json` (stringified JSON matching the calendar’s YAML shape).
 
+## Management API
+
+ical-proxy exposes a JSON API under `/api/v1` intended to be consumed by your Symfony application (which can enforce user permissions). If `ICAL_PROXY_ADMIN_TOKEN` is set, management endpoints require `Authorization: Bearer <token>`.
+
+- GET `/api/v1/health`: Service status.
+- GET `/api/v1/calendars`: List calendars with their source (`yaml` or `db`).
+- GET `/api/v1/calendars/:name`: Effective config for a calendar.
+- POST `/api/v1/calendars`: Create a DB-backed calendar. Body: `{ name, config }`.
+- PATCH `/api/v1/calendars/:name`: Update DB-backed calendar config. YAML-defined calendars cannot be modified.
+- DELETE `/api/v1/calendars/:name`: Delete a DB-backed calendar.
+- GET `/api/v1/calendars/:name/events?source=live|persisted|union`: List events as JSON.
+- POST `/api/v1/calendars/:name/sync`: Trigger a sync (fetch + persist) and return basic counts.
+- GET `/api/v1/calendars/:name/preview.ics`: Proxied ICS output (respects `?key=` if provided).
+- GET `/api/v1/calendars/:name/preview.json`: Proxied events after transformations as JSON.
+
+Note: YAML remains the source of truth. If a calendar exists in YAML, API modifications are rejected with 409.
+
+### OpenAPI
+
+An OpenAPI 3.1 spec is included at `openapi.yaml`. Point your Symfony client/codegen at it to generate clients or docs.
+
 ## Plugins / Addons
 
 To make transformations modular, ical-proxy now auto-loads all Ruby files under:
