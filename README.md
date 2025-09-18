@@ -130,3 +130,48 @@ That's it! Your calendar should now be available at `https://aws-api-gateway-hos
   - Without the setting: keep only if an older event still exists in the current feed; otherwise remove.
 - Serving: The calendar serves the union of live events and persisted-only events, then applies your configured filters/transformations. The persisted data itself remains raw and untransformed.
 - Reset: Delete `persist.json` to clear the history for all calendars.
+
+## Plugins / Addons
+
+To make transformations modular, ical-proxy now auto-loads all Ruby files under:
+- `lib/ical_proxy/**/*.rb` (core modules)
+- `lib/ical_proxy/addons/**/*.rb` (your drop-in addons)
+
+You no longer need to add `require_relative` lines in `lib/ical_proxy.rb`.
+
+### Transformer registry
+
+Transformers can register themselves against a key in your `transformations` config using a tiny registry:
+
+```ruby
+# lib/ical_proxy/transformer/your_transformer.rb
+module IcalProxy
+  module Transformer
+    class YourTransformer
+      def initialize(opts); @opts = opts; end
+      def apply(event); /* mutate event */ end
+    end
+  end
+end
+
+IcalProxy::Transformer::Registry.register('your_key') do |section|
+  # `section` is the hash/value from `transformations.your_key`
+  IcalProxy::Transformer::YourTransformer.new(section)
+end
+```
+
+Then in `config.yml`:
+
+```yaml
+transformations:
+  your_key: { option: value }
+```
+
+Core transformers are pre-registered:
+- `transformations.rename: [ ... ]`
+- `transformations.location_rules: [ ... ]`
+- `transformations.location: [ ... ]`
+
+Addons can be dropped into `lib/ical_proxy/addons/transformer/*.rb` and will be discovered automatically.
+
+Example addon included: `lib/ical_proxy/addons/transformer/uppercase_summary.rb`

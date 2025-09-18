@@ -82,3 +82,48 @@ module IcalProxy
     end
   end
 end
+
+# Register as a plugin for transformations.rename
+begin
+  IcalProxy::Transformer::Registry.register('rename') do |rename_rules|
+    rules = Array(rename_rules)
+
+    rules.map do |rule|
+      pattern_str = rule["pattern"] || rule["match"] || rule["matches"]
+      next nil unless pattern_str
+      replacement = rule["replace"] || rule["replacement"] || rule["to"] || ""
+
+      search_in = rule["search_in"] || rule["search"] || rule["in"] || ["summary"]
+      capture_group = rule["capture_group"] || rule["capture"] || (rule["use_capture"] ? 1 : nil)
+      set_on_match = if rule.key?("set_on_match")
+                       rule["set_on_match"]
+                     else
+                       (!!rule["to"] || !!rule["normalize"] || !capture_group.nil?)
+                     end
+
+      pattern = begin
+        if rule.key?("regex") && rule["regex"] == true
+          pattern_str.to_regexp
+        elsif pattern_str.is_a?(String) && pattern_str.strip.start_with?("/")
+          pattern_str.to_regexp
+        elsif pattern_str.is_a?(Regexp)
+          pattern_str
+        else
+          pattern_str.to_s
+        end
+      rescue
+        pattern_str.to_s
+      end
+
+      IcalProxy::Transformer::Rename.new(
+        pattern,
+        replacement,
+        search_in: search_in,
+        set_on_match: set_on_match,
+        capture_group: capture_group
+      )
+    end.compact
+  end
+rescue NameError
+  # Registry may be required later; ignore registration if missing
+end

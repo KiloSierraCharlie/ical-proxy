@@ -58,9 +58,14 @@ module IcalProxy
       cfg = calendar_config["transformations"]
       return unless cfg
 
-      add_rename_transformations(cfg)
-      add_location_transformations(cfg)
-      add_location_rules_transformations(cfg)
+      if defined?(IcalProxy::Transformer::Registry)
+        instances = IcalProxy::Transformer::Registry.build_from_config(cfg)
+        instances.each { |t| calendar.add_transformation(t) }
+      else
+        add_rename_transformations(cfg)
+        add_location_transformations(cfg)
+        add_location_rules_transformations(cfg)
+      end
     end
 
     def add_rename_transformations(cfg)
